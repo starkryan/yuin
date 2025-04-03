@@ -159,6 +159,7 @@ function NumbersPage() {
       console.error('Error purchasing number:', error);
       
       let errorMessage = 'Failed to purchase number. Please try again.';
+      let isAuthError = false;
       
       if (error.name === 'ValidationError') {
         errorMessage = `Validation error: ${error.message}`;
@@ -169,15 +170,42 @@ function NumbersPage() {
         const statusCode = error.response.status;
         const responseData = error.response.data;
         
-        errorMessage = `API Error (${statusCode}): ${responseData?.error || responseData?.message || 'Unknown error'}`;
+        if (statusCode === 401) {
+          isAuthError = true;
+          errorMessage = 'You need to be signed in to purchase a number.';
+        } else {
+          errorMessage = `API Error (${statusCode}): ${responseData?.error || responseData?.message || 'Unknown error'}`;
+        }
         console.error('API error details:', responseData);
       } else if (error.message) {
-        errorMessage = error.message;
+        if (error.message.includes('sign in') || error.message.includes('authentication') || error.message.includes('Authentication required')) {
+          isAuthError = true;
+          errorMessage = 'You need to be signed in to purchase a number.';
+        } else {
+          errorMessage = error.message;
+        }
       }
       
-      toast.error(errorMessage, {
-        duration: 5000
-      });
+      if (isAuthError) {
+        toast.error(
+          <div className="flex flex-col gap-2">
+            <p>{errorMessage}</p>
+            <div className="flex gap-2 mt-2">
+              <Button size="sm" variant="outline" asChild>
+                <a href="/sign-in">Sign In</a>
+              </Button>
+              <Button size="sm" variant="default" asChild>
+                <a href="/sign-up">Sign Up</a>
+              </Button>
+            </div>
+          </div>,
+          { duration: 8000 }
+        );
+      } else {
+        toast.error(errorMessage, {
+          duration: 5000
+        });
+      }
       
       setIsPurchasing(false);
     }

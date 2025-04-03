@@ -1,8 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-// Remove the next-auth useSession import as we're removing authentication
-// import { useSession } from 'next-auth/react';
+import { useUser } from '@clerk/nextjs';
 import { getCountries, checkApiStatus, getUserProfile } from '../api';
 import { Country } from '../api';
 import { toast } from 'sonner';
@@ -20,7 +19,7 @@ interface AppContextType {
   setSelectedCountry: (country: string) => void;
   isAuthenticated: boolean;
   user: {
-    id?: string;
+    id?: string | number;
     name?: string | null;
     email?: string | null;
     image?: string | null;
@@ -31,24 +30,16 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
-  // Remove session logic and hardcode authentication status
-  // const { data: session, status } = useSession();
+  const { isSignedIn, user, isLoaded } = useUser();
   const [countries, setCountries] = useState<Record<string, Country> | null>(null);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [apiStatus, setApiStatus] = useState<AppContextType['apiStatus']>(null);
+  const [userData, setUserData] = useState<AppContextType['user']>(null);
   
-  // Always set isAuthenticated to true regardless of actual auth status
-  const isAuthenticated = true; 
-  // Create a default user object
-  const user = {
-    id: 'default-user-id',
-    name: 'Default User',
-    email: 'user@example.com',
-    image: null,
-    balance: 100 // Default balance
-  };
+  // Authentication state from Clerk
+  const isAuthenticated = isSignedIn === true;
 
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -100,21 +91,49 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           toast.error('Failed to load countries data. Some features may be limited.');
         }
         
-        // Check API status and fetch user profile for balance
+        // Check API status
         try {
           const isApiOperational = await checkApiStatus();
           
-          // Fetch user profile to get balance and email
-          if (isApiOperational) {
-            const profileData = await getUserProfile();
-            setApiStatus({
-              isOperational: true,
-              balance: profileData.balance,
-              email: profileData.email
-            });
+          // Fetch user profile if authenticated
+          if (isAuthenticated && isApiOperational) {
+            try {
+              const profileData = await getUserProfile();
+              setApiStatus({
+                isOperational: true,
+                balance: profileData.balance,
+                email: profileData.email
+              });
+              
+              // Set user data
+              setUserData({
+                id: profileData.id,
+                email: profileData.email,
+                name: user?.fullName || null,
+                image: user?.imageUrl || null,
+                balance: profileData.balance
+              });
+            } catch (profileError) {
+              console.error('Error fetching user profile:', profileError);
+              
+              // Set default user data from Clerk if profile fetch fails
+              setUserData({
+                id: user?.id,
+                email: user?.primaryEmailAddress?.emailAddress || null,
+                name: user?.fullName || null,
+                image: user?.imageUrl || null,
+                balance: 0
+              });
+              
+              setApiStatus({
+                isOperational: true,
+                balance: 0,
+                email: user?.primaryEmailAddress?.emailAddress || ''
+              });
+            }
           } else {
             setApiStatus({
-              isOperational: false,
+              isOperational: isApiOperational,
               balance: 0,
               email: ''
             });
@@ -124,13 +143,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           // Don't show a toast for this as it's not critical
         }
 
-        // Remove the auth check since we're removing authentication
-        // Just load everything by default
-        try {
-          console.log('App is now working without authentication');
-        } catch (err) {
-          console.error('Error in data loading:', err);
-        }
+        console.log('App is now working with Clerk authentication');
 
         setIsLoading(false);
       } catch (err: any) {
@@ -150,8 +163,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       }
     };
 
-    fetchInitialData();
-  }, [selectedCountry]); // Only depends on selectedCountry now, not authentication status
+    // Only fetch data when Clerk authentication state is loaded
+    if (isLoaded) {
+      fetchInitialData();
+    }
+  }, [isLoaded, isAuthenticated, selectedCountry, user]); 
 
   return (
     <AppContext.Provider
@@ -163,7 +179,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         apiStatus,
         setSelectedCountry,
         isAuthenticated,
-        user,
+        user: userData,
       }}
     >
       {children}

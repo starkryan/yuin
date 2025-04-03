@@ -1,63 +1,68 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
+import { auth } from '@clerk/nextjs/server';
 
-// Server-side environment variables
-const API_URL = process.env.FIVESIM_BASE_URL;
-const API_KEY = process.env.FIVESIM_API_KEY;
+// Environment variables for the 5SIM API
+const API_URL = process.env.API_URL;
+const API_KEY = process.env.API_KEY;
+
+// Error handling function
+const handleError = (error: any) => {
+  console.error('Purchase error:', error.response?.data || error.message || error);
+  
+  // Extract meaningful error message
+  let errorMessage = 'Failed to purchase activation';
+  if (error.response?.data?.message) {
+    errorMessage = error.response.data.message;
+  } else if (error.message) {
+    errorMessage = error.message;
+  }
+  
+  return NextResponse.json(
+    { success: false, error: errorMessage },
+    { status: error.response?.status || 500 }
+  );
+};
 
 export async function POST(request: NextRequest) {
   try {
+    // Verify authentication
+    const session = await auth();
+    if (!session || !session.userId) {
+      return NextResponse.json(
+        { success: false, error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    // Parse request body
     const body = await request.json();
     const { country, operator, product } = body;
-    
-    // Validate required parameters
+
+    // Validate required fields
     if (!country || !operator || !product) {
       return NextResponse.json(
-        { error: 'Missing required parameters: country, operator, product' }, 
+        { success: false, error: 'Missing required fields: country, operator, product' },
         { status: 400 }
       );
     }
-    
-    console.log(`Purchasing activation for: ${country}/${operator}/${product}`);
-    
-    // Purchase activation from 5sim API using the exact endpoint format from the curl example
+
+    // Make request to 5SIM API
     const response = await axios.get(
-      `${API_URL}/user/buy/activation/${country}/${operator}/${product}`, 
+      `${API_URL}/buy/activation/${country}/${operator}/${product}`,
       {
         headers: {
           'Authorization': `Bearer ${API_KEY}`,
           'Accept': 'application/json',
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json'
         }
       }
     );
-    
-    console.log('Purchase response:', response.data);
-    
+
+    // Store the purchase in the database (TODO: implement database interaction)
+    // For now, just return the 5SIM response
     return NextResponse.json(response.data);
-  } catch (error) {
-    console.error('Error purchasing activation:', error);
-    
-    // Handle different error types and provide more helpful error messages
-    if (axios.isAxiosError(error) && error.response) {
-      const statusCode = error.response.status;
-      const errorData = error.response.data;
-      
-      console.error('API error details:', { statusCode, errorData });
-      
-      return NextResponse.json(
-        { 
-          error: 'Failed to purchase activation', 
-          details: errorData,
-          status: statusCode 
-        }, 
-        { status: statusCode }
-      );
-    }
-    
-    return NextResponse.json(
-      { error: 'Failed to purchase activation', message: error instanceof Error ? error.message : 'Unknown error' }, 
-      { status: 500 }
-    );
+  } catch (error: any) {
+    return handleError(error);
   }
 } 

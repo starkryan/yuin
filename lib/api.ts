@@ -197,8 +197,8 @@ export const banActivation = async (id: number): Promise<Activation | never> => 
 // New endpoint for user profile
 export const getUserProfile = async (): Promise<UserProfile | never> => {
   try {
-    const response = await api.get('/profile');
-    return response.data;
+    const response = await api.get('/api/user/balance');
+    return response.data.data;
   } catch (error) {
     console.error('Error fetching user profile:', error);
     throw error;
@@ -208,7 +208,7 @@ export const getUserProfile = async (): Promise<UserProfile | never> => {
 export async function checkApiStatus(): Promise<boolean> {
   try {
     const response = await api.get('/status');
-    return response.status === 200;
+    return response.data.isOperational === true;
   } catch (error) {
     console.error('Error checking API status:', error);
     return false;
@@ -237,12 +237,17 @@ export async function purchaseActivation(country: string, operator: string, prod
   } catch (error) {
     console.error('Error purchasing activation:', error);
     
-    // Enhance error details for better debugging
+    // Enhance error details for better debugging and user experience
     if (axios.isAxiosError(error) && error.response) {
       const status = error.response.status;
       const errorData = error.response.data;
       
-      throw new Error(`Purchase failed (${status}): ${JSON.stringify(errorData)}`);
+      // Specifically handle authentication errors with a user-friendly message
+      if (status === 401) {
+        throw new Error('Please sign in to purchase a number. You can create an account or sign in to continue.');
+      }
+      
+      throw new Error(`Purchase failed: ${errorData?.error || JSON.stringify(errorData)}`);
     }
     
     throw error;

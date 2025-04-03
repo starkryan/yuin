@@ -1,0 +1,68 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String        @id @default(uuid()) // Add default UUID
+  username      String?       @unique
+  name          String?
+  email         String        @unique
+  clerkId       String        @unique
+  imageUrl      String?
+  balance       Float         @default(0)
+  activations   Activation[]
+  transactions  Transaction[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+
+model Activation {
+  id          String        @id @default(uuid())
+  activationId String       @unique // The ID from 5sim API
+  userId      String
+  user        User          @relation(fields: [userId], references: [id])
+  phone       String
+  operator    String
+  product     String
+  country     String
+  price       Float
+  status      String
+  smsReceived Int           @default(0)
+  createdAt   DateTime      @default(now())
+  completedAt DateTime?
+  updatedAt   DateTime      @updatedAt
+}
+
+model Transaction {
+  id          String        @id @default(uuid())
+  userId      String
+  user        User          @relation(fields: [userId], references: [id])
+  amount      Float
+  type        TransactionType
+  description String
+  status      TransactionStatus
+  reference   String?       // Reference ID for payment gateway
+  activationId String?      // If transaction is related to a number purchase
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  PURCHASE
+  REFUND
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+}

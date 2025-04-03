@@ -10,8 +10,8 @@ import { ClerkProvider } from "@clerk/nextjs";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "5SIM Phone Verification Service",
-  description: "Purchase phone numbers for SMS verification",
+  title: "OTPMaya - Temporary Phone Numbers for Verification",
+  description: "Get temporary phone numbers for SMS verification services.",
 };
 
 export default function RootLayout({
@@ -20,7 +20,21 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider>
+    <ClerkProvider
+      publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+      appearance={{
+        // Global appearance configuration
+        elements: {
+          formButtonPrimary: "bg-primary hover:bg-primary/90 text-primary-foreground",
+          card: "rounded-lg shadow-lg border border-border bg-card",
+        }
+      }}
+      // Redirect users to account page after sign in/up
+      signInUrl="/sign-in"
+      signUpUrl="/sign-up"
+      afterSignInUrl="/account"
+      afterSignUpUrl="/account"
+    >
       <html lang="en">
         <body className={inter.className}>
           <AppProvider>
