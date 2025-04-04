@@ -27,7 +27,7 @@ const fetchActivationIds = (): number[] => {
 };
 
 // Function to save an activation ID to localStorage
-export const saveActivationId = (id: number) => {
+const saveActivationId = (id: number) => {
   if (typeof window !== 'undefined') {
     try {
       const existingIds = fetchActivationIds();
@@ -42,7 +42,7 @@ export const saveActivationId = (id: number) => {
 };
 
 // Function to remove an activation ID from localStorage
-export const removeActivationId = (id: number) => {
+const removeActivationId = (id: number) => {
   if (typeof window !== 'undefined') {
     try {
       const existingIds = fetchActivationIds();
